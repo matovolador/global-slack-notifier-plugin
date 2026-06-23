@@ -65,5 +65,9 @@ refernce from https://github.com/jenkinsci/chatwork-plugin
   <f:entry title="notify on build aborted" field="notifyOnAborted">
     <f:checkbox/>
   </f:entry>
+
+  <f:entry title="Job exclusion patterns" field="jobExclusionPatterns" description="One Java regular expression per line, matched against the full job name. Matching jobs will not send global Slack build notifications.">
+    <f:textarea/>
+  </f:entry>
   </f:section>
 </j:jelly>

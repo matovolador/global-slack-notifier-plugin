@@ -18,6 +18,8 @@ import hudson.scm.ChangeLogSet.Entry;
 
 import java.util.*;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 import jenkins.plugins.slack.*;
 
@@ -33,7 +35,6 @@ public class GlobalSlackNotifier extends RunListener<Run<?, ?>> implements Descr
     public void onCompleted(Run<?, ?> run, TaskListener listener) {
         publish( run, listener);
     }
-
 
     public Descriptor<GlobalSlackNotifier> getDescriptor() {
         return getDescriptorImpl();
@@ -54,6 +55,8 @@ public class GlobalSlackNotifier extends RunListener<Run<?, ?>> implements Descr
       public void publish(Run<?, ?> r, TaskListener listener)
       {
           Result result = r.getResult();
+          if (getDescriptorImpl().isJobExcluded(r.getParent().getFullName())) { return; }
+
           SlackMessage message = getSlackMessage(result);
           SlackNotifier.DescriptorImpl slackDesc = getSlackDescriptor();
 
@@ -137,7 +140,6 @@ public class GlobalSlackNotifier extends RunListener<Run<?, ?>> implements Descr
             return message.toString();
         }
 
-
       @Extension @Symbol("globalSlackNotifier")
       public static final class DescriptorImpl extends Descriptor<GlobalSlackNotifier> {
 
@@ -160,6 +162,8 @@ public class GlobalSlackNotifier extends RunListener<Run<?, ?>> implements Descr
         private String abortedRoom;
         private String abortedMessage;
         private boolean notifyOnAborted;
+
+        private String jobExclusionPatterns;
 
         public DescriptorImpl() {
             try{
@@ -304,6 +308,32 @@ public class GlobalSlackNotifier extends RunListener<Run<?, ?>> implements Descr
 			return notifyOnAborted;
 		}
 
+        public String getJobExclusionPatterns() {
+            return jobExclusionPatterns;
+        }
+
+        public boolean isJobExcluded(String jobFullName) {
+            if (StringUtils.isEmpty(jobExclusionPatterns)) {
+                return false;
+            }
+
+            for (String pattern : jobExclusionPatterns.split("\\r?\\n")) {
+                pattern = pattern.trim();
+                if (StringUtils.isEmpty(pattern)) {
+                    continue;
+                }
+
+                try {
+                    if (Pattern.compile(pattern).matcher(jobFullName).find()) {
+                        return true;
+                    }
+                } catch (PatternSyntaxException e) {
+                    logger.warning("Invalid job exclusion pattern: " + pattern);
+                }
+            }
+            return false;
+        }
+
 
 		@DataBoundSetter
         public void setSuccessMessage(String successMessage) { this.successMessage = successMessage; }
@@ -357,5 +387,8 @@ public class GlobalSlackNotifier extends RunListener<Run<?, ?>> implements Descr
 
         @DataBoundSetter
         public void setNotifyOnAborted(boolean notifyOnAborted) { this.notifyOnAborted = notifyOnAborted; }
+
+        @DataBoundSetter
+        public void setJobExclusionPatterns(String jobExclusionPatterns) { this.jobExclusionPatterns = jobExclusionPatterns; }
       }
 }
